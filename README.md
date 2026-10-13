@@ -24,26 +24,48 @@ patch doesn't change anything for it.
 
 ## Usage
 
-Requires Python 3 on Windows (stdlib only). Close the game first.
+Works on Windows 10 and 11 with nothing extra to install. It uses the PowerShell
+that ships with Windows.
+
+1. Close the game. On GitHub, click **Code → Download ZIP**, then extract it anywhere.
+2. Double-click **`apply-patch.bat`**. It finds the game in any of your Steam
+   library folders (including other drives) and patches it.
+   - If it can't find the game, drag the game's `Game` folder (or
+     `DarkSoulsII.exe`) onto `apply-patch.bat`.
+   - If it says access is denied, right-click the .bat and choose **Run as administrator**.
+3. For any **non-Xbox** controller, open DS2 in your Steam Library and go to
+   **Properties → Controller → Enable Steam Input**. After the patch the game
+   only talks to Xbox-style (XInput) pads, so Steam Input (or DS4Windows, etc.)
+   has to do the translation.
+
+To undo it, double-click **`restore-original.bat`**.
+
+Windows may warn that the .bat came from the internet. That's normal for scripts.
+Everything it does is in `ds2_xinput_patch.ps1` if you want to read it first.
+
+Command line, if you prefer:
 
 ```
-py ds2_xinput_patch.py           # apply
-py ds2_xinput_patch.py status
-py ds2_xinput_patch.py restore   # back to the untouched exe
-py ds2_xinput_patch.py --game-dir "D:\SteamLibrary\steamapps\common\Dark Souls II Scholar of the First Sin\Game"
+powershell -ExecutionPolicy Bypass -File ds2_xinput_patch.ps1 [apply|status|restore] ["<Game folder>"]
 ```
-
-Then, for any **non-Xbox** controller, open DS2 in your Steam Library and go to
-**Properties → Controller → Enable Steam Input**. After the patch the game only
-talks to Xbox-style (XInput) pads, so Steam Input (or DS4Windows, etc.) has to do
-the translation.
 
 Notes:
-- The patcher only touches the current Steam build (SHA-256 `0045931b…3131`).
-  It keeps the original as `DarkSoulsII.exe.original`. If another patch had
+- It only patches the current Steam build. That's checked by SHA-256
+  `0045931b…3131`, which matches the file in Steam's depot manifest for build
+  9527516, so every up-to-date Steam copy is identical. Anything else is refused
+  with a hint to verify game files. The original 2014 *Dark Souls II* (not SotFS)
+  isn't supported.
+- The original is kept as `DarkSoulsII.exe.original`. If another patch had
   already modified the exe, that copy is saved as
-  `DarkSoulsII.exe.replaced-<timestamp>`.
+  `DarkSoulsII.exe.replaced-<timestamp>`. Restoring still works if the backup
+  is gone.
 - **"Verify integrity of game files" in Steam undoes the patch.** Just run it again.
+
+### Manual patch (hex editor)
+
+In `DarkSoulsII.exe`, starting at file offset `0xEF5D9F` you should see
+`80 B9 6B 01 00 00 00 75 1E 48 8B 49 18`. The `75` is at `0xEF5DA6`. Change it to
+`EB` and save. To undo, change it back to `75`.
 
 ## What's actually going on
 
@@ -82,6 +104,7 @@ deadzone bothers you, a Steam Input layout with anti-deadzone is the safer route
 
 ## Diagnostics
 
+This part is optional and needs [Python 3](https://www.python.org/downloads/windows/).
 `tools/padprobe.py` shows what Windows sees from each controller and records the
 real stick range:
 

@@ -66,7 +66,15 @@ class JOYCAPSW(C.Structure):
 
 USAGE_NAMES = {0x30: "X", 0x31: "Y", 0x32: "Z", 0x33: "Rx", 0x34: "Ry", 0x35: "Rz",
                0x36: "Slider", 0x37: "Dial", 0x39: "Hat"}
+class OVERLAPPED(C.Structure):
+    _fields_ = [("Internal", C.c_void_p), ("InternalHigh", C.c_void_p), ("Offset", W.DWORD),
+                ("OffsetHigh", W.DWORD), ("hEvent", W.HANDLE)]
+
+
 k32.CreateFileW.restype = W.HANDLE
+k32.CreateEventW.restype = W.HANDLE
+k32.WaitForSingleObject.argtypes = [W.HANDLE, W.DWORD]
+k32.ResetEvent.argtypes = [W.HANDLE]
 setupapi.SetupDiGetClassDevsW.restype = W.HANDLE
 INVALID = W.HANDLE(-1).value
 
@@ -84,7 +92,8 @@ def hid_game_devices():
         need = W.DWORD()
         setupapi.SetupDiGetDeviceInterfaceDetailW(W.HANDLE(hdi), C.byref(did), None, 0, C.byref(need), None)
         buf = C.create_string_buffer(need.value)
-        C.cast(buf, C.POINTER(W.DWORD))[0] = 8  # cbSize on x64
+        # cbSize of SP_DEVICE_INTERFACE_DETAIL_DATA_W: 8 on 64-bit Python, 6 on 32-bit
+        C.cast(buf, C.POINTER(W.DWORD))[0] = 8 if C.sizeof(C.c_void_p) == 8 else 6
         if not setupapi.SetupDiGetDeviceInterfaceDetailW(W.HANDLE(hdi), C.byref(did), buf, need, None, None):
             continue
         path = C.wstring_at(C.addressof(buf) + 4)
@@ -133,9 +142,8 @@ def describe(path, h, pp, caps):
 def record(h, pp, caps, vals, seconds):
     """Read raw input reports and track the real min/max of every axis."""
     buf = C.create_string_buffer(caps.InputReportByteLength)
-    ov = (C.c_byte * 32)()
     ev = k32.CreateEventW(None, True, False, None)
-    C.cast(ov, C.POINTER(C.c_void_p))[3] = ev  # OVERLAPPED.hEvent at offset 24
+    ov = OVERLAPPED(hEvent=ev)
     stats: dict[str, list[int]] = {}  # axis -> [rest, min, max]
     spans: dict[str, tuple[int, int]] = {}  # axis -> declared (min, max)
     report_ids: dict[int, int] = {}
@@ -150,14 +158,15 @@ def record(h, pp, caps, vals, seconds):
     while time.time() < end:
         got = W.DWORD()
         k32.ResetEvent(ev)
-        ok = k32.ReadFile(W.HANDLE(h), buf, len(buf), C.byref(got), ov)
+        ok = k32.ReadFile(W.HANDLE(h), buf, len(buf), C.byref(got), C.byref(ov))
         if not ok and C.get_last_error() != 997:  # ERROR_IO_PENDING
             print("  ReadFile failed", C.get_last_error())
             return
         if k32.WaitForSingleObject(ev, 250) != 0:
             k32.CancelIo(W.HANDLE(h))
+            k32.GetOverlappedResult(W.HANDLE(h), C.byref(ov), C.byref(got), True)  # let the cancel finish
             continue
-        k32.GetOverlappedResult(W.HANDLE(h), ov, C.byref(got), True)
+        k32.GetOverlappedResult(W.HANDLE(h), C.byref(ov), C.byref(got), True)
         raw = buf.raw[: got.value]
         if first_raw is None:
             first_raw = raw
