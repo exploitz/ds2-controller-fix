@@ -113,3 +113,9 @@ py tools\padprobe.py 30    # spin both sticks for 30 s
 ```
 
 If it reports full report mode (`0x30`), Steam currently owns the controller.
+
+## License
+
+[MIT](LICENSE). This covers the scripts in this repo only. Dark Souls II is
+FromSoftware/Bandai Namco's, and nothing from the game is distributed here. The
+patcher just flips one byte in your own copy.
