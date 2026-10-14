@@ -61,6 +61,18 @@ Notes:
   is gone.
 - **"Verify integrity of game files" in Steam undoes the patch.** Just run it again.
 
+### Troubleshooting
+
+- **No controls in game:** Steam Input isn't actually on for DS2. In the game,
+  press Shift+Tab → Controller settings → **Enable Steam Input**. The "Use
+  default settings" choice leaves it off for this game.
+- **Slow walking again, or A/B swapped, on a Switch-style pad:** Steam picked
+  up the controller as a *generic gamepad* instead of a Switch Pro Controller.
+  This can happen when it reconnects. Generic mode reads the short-range simple
+  report, and the button setup Steam asks for maps buttons by their printed
+  letters. Fully exit Steam (Steam → Exit) with the controller on, then start
+  Steam again. **Settings → Controller** should list a *Switch Pro Controller*.
+
 ### Manual patch (hex editor)
 
 In `DarkSoulsII.exe`, starting at file offset `0xEF5D9F` you should see
